@@ -9,10 +9,10 @@ import 'bot.dart';
 //free bot notification
 class FreeBotNotification extends Notification {
   final String botName;
-  final int completedOrderIdx;
+  final String completedOrderName;
 
   const FreeBotNotification(
-      {required this.botName, required this.completedOrderIdx});
+      {required this.botName, required this.completedOrderName});
 }
 
 class Home extends StatefulWidget {
@@ -31,7 +31,7 @@ class _HomeState extends State<Home> {
   ];
 
   void _addOrder(OrderType type) {
-    final nextOrderID = _orders.length + 1;
+    final nextOrderID = _orders.length + 1 + _completedOrders.length;
     final nextFreeBot =
         _bots.firstWhereOrNull((bot) => bot.status == BotStatus.idle);
 
@@ -114,13 +114,18 @@ class _HomeState extends State<Home> {
     });
   }
 
-  void _markOrderAsCompleted(int index) {
+  void _markOrderAsCompleted(String orderName) {
+    final int index = _orders.indexWhere((order) => order.name == orderName);
+    final Order currentOrder = _orders[index];
+    final Order updatedOrder = Order(
+        name: currentOrder.name,
+        handler: currentOrder.handler,
+        type: currentOrder.type,
+        status: OrderStatus.completed);
     setState(() {
-      _orders[index] = Order(
-          name: _orders[index].name,
-          handler: _orders[index].handler,
-          type: _orders[index].type,
-          status: OrderStatus.completed);
+      _orders[index] = updatedOrder;
+      _completedOrders.add(updatedOrder);
+      _orders.removeAt(index);
     });
   }
 
@@ -184,8 +189,9 @@ class _HomeState extends State<Home> {
           foregroundColor: Colors.black),
       body: NotificationListener<FreeBotNotification>(
         onNotification: (notification) {
+          _markOrderAsCompleted(notification.completedOrderName);
           _refreshBotStatus(notification.botName);
-          _markOrderAsCompleted(notification.completedOrderIdx);
+
           return true;
         },
         child: Padding(
@@ -240,10 +246,29 @@ class _HomeState extends State<Home> {
                 const SizedBox(
                   height: 16,
                 ),
+                Text("Pending / In Progress",
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(
+                  height: 8,
+                ),
                 Expanded(
                   flex: 2,
                   child: Orders(
                     orders: _orders,
+                  ),
+                ),
+                const SizedBox(
+                  height: 16,
+                ),
+                Text("Completed",
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(
+                  height: 8,
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Orders(
+                    orders: _completedOrders,
                   ),
                 ),
                 const SizedBox(
@@ -278,9 +303,8 @@ class _HomeState extends State<Home> {
 
 class OrderItem extends StatefulWidget {
   final Order order;
-  final int index;
 
-  const OrderItem({super.key, required this.order, required this.index});
+  const OrderItem({super.key, required this.order});
 
   @override
   State<OrderItem> createState() => _OrderItemState();
@@ -296,6 +320,10 @@ class _OrderItemState extends State<OrderItem> {
     super.initState();
     orderItem = widget.order;
     debugPrint("initState ${orderItem.name}");
+    if (widget.order.status == OrderStatus.completed) {
+      _timeRemainingSecs = 0;
+      return;
+    }
     if (widget.order.handler != null) {
       startTimer();
     }
@@ -303,6 +331,7 @@ class _OrderItemState extends State<OrderItem> {
 
   @override
   void didUpdateWidget(covariant OrderItem oldWidget) {
+    debugPrint("didUpdateWidget ${orderItem.name}");
     super.didUpdateWidget(oldWidget);
     orderItem = widget.order;
     if (orderItem.handler != null &&
@@ -335,7 +364,7 @@ class _OrderItemState extends State<OrderItem> {
 
           context.dispatchNotification(FreeBotNotification(
               botName: orderItem.handler!.name,
-              completedOrderIdx: widget.index));
+              completedOrderName: widget.order.name));
           return;
         }
         orderItem = Order(
@@ -395,12 +424,23 @@ class Orders extends StatelessWidget {
   Widget build(BuildContext context) {
     return orders.isEmpty
         ? const Center(child: Text("No Orders :("))
-        : ListView.builder(
-            itemBuilder: (context, index) {
-              return OrderItem(order: orders[index], index: index);
-            },
-            itemCount: orders.length,
+        //not using list view builder as it is lazily loaded, the order of the list is not maintained, also the timer might not start if the order is not in view
+        : ListView(
+            children: orders
+                .map((order) => OrderItem(
+                    key: ValueKey(order.name + order.status.toString()),
+                    order: order))
+                .toList(),
           );
+    // : ListView.builder(
+    //     itemBuilder: (context, index) {
+    //       return OrderItem(
+    //           key: ValueKey(orders[index].name + orders[index].status.toString()),
+    //           order: orders[index],
+    //           );
+    //     },
+    //     itemCount: orders.length,
+    //   );
   }
 }
 
