@@ -214,11 +214,11 @@ class _HomeState extends State<Home> {
                     const Spacer(),
                     TextButton.icon(
                         //style the button red
-                        style: _bots.length == 1 ? null: ButtonStyle(
+                        style: _bots.isEmpty ? null: ButtonStyle(
                           foregroundColor:
                               MaterialStateProperty.all<Color>(Colors.red),
                         ),
-                        onPressed: _bots.length == 1
+                        onPressed: _bots.isEmpty
                             ? null
                             : () {
                                 _removeBot();
