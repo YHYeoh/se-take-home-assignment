@@ -103,9 +103,13 @@ class _HomeState extends State<Home> {
     //remove the last bot
     setState(() {
       Bot latestBot = _bots.removeLast();
+
       //resets the status of the order handled by the bot
-      Order handledOrder = _orders
-          .firstWhere((element) => element.handler?.name == latestBot.name);
+      Order? handledOrder = _orders.firstWhereOrNull(
+          (element) => element.handler?.name == latestBot.name);
+
+      if (handledOrder == null) return;
+
       _orders[_orders.indexOf(handledOrder)] = Order(
           name: handledOrder.name,
           handler: null,
@@ -210,13 +214,15 @@ class _HomeState extends State<Home> {
                     const Spacer(),
                     TextButton.icon(
                         //style the button red
-                        style: ButtonStyle(
+                        style: _bots.length == 1 ? null: ButtonStyle(
                           foregroundColor:
                               MaterialStateProperty.all<Color>(Colors.red),
                         ),
-                        onPressed: () {
-                          _removeBot();
-                        },
+                        onPressed: _bots.length == 1
+                            ? null
+                            : () {
+                                _removeBot();
+                              },
                         icon: const Icon(Icons.remove_circle_rounded),
                         label: const Text("Remove Bot")),
                     const SizedBox(
